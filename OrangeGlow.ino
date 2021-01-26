@@ -45,8 +45,6 @@ int seconds = 0;
 //cstring for sending webpage time display
 char message[25];
 
-// Stores LED state
-String ledState;
 
 //pointer to spi object
 SPIClass * vspi = NULL;
@@ -158,15 +156,25 @@ void WebServerSetup()
 
   // Route to set GPIO to HIGH
   server.on("/on", HTTP_GET, [](AsyncWebServerRequest *request){
-    digitalWrite(ledPin, HIGH);
+    digitalWrite(ledPin, HIGH);   
+    request->send(SPIFFS, "/index.html", String(), false, processor);
+  });
+  // Route to set GPIO to LOW
+  server.on("/off", HTTP_GET, [](AsyncWebServerRequest *request){
+    digitalWrite(ledPin, LOW);   
+    request->send(SPIFFS, "/index.html", String(), false, processor);
+  });
+  server.on("/HVon", HTTP_GET, [](AsyncWebServerRequest *request){
+    digitalWrite(hvPin, LOW);    
+    request->send(SPIFFS, "/index.html", String(), false, processor);
+  });
+  server.on("/HVoff", HTTP_GET, [](AsyncWebServerRequest *request){
     digitalWrite(hvPin, HIGH);    
     request->send(SPIFFS, "/index.html", String(), false, processor);
   });
-  
-  // Route to set GPIO to LOW
-  server.on("/off", HTTP_GET, [](AsyncWebServerRequest *request){
-    digitalWrite(ledPin, LOW);
-    digitalWrite(hvPin, LOW);    
+
+  server.on("/sync", HTTP_GET, [](AsyncWebServerRequest *request){
+    timeClient.forceUpdate();    
     request->send(SPIFFS, "/index.html", String(), false, processor);
   });
 // Send a GET request to <ESP_IP>/slider?value=<inputMessage>
@@ -272,12 +280,24 @@ void loop(){
 
 // Replaces placeholder with LED state value
 String processor(const String& var){
+  String ledState;
+  String hvState;
   Serial.println(var);
   if (var == "SLIDERVALUE"){
     return sliderValue;
   }
-  else if(var == "STATE"){
-    if(digitalRead(hvPin)){
+  else if(var == "HVSTATE"){
+    if(!digitalRead(hvPin)){
+      hvState = "ON";
+    }
+    else{
+      hvState = "OFF";
+    }
+    Serial.print(hvState);
+    return hvState;
+  }
+  else if(var == "LEDSTATE"){
+    if(digitalRead(ledPin)){
       ledState = "ON";
     }
     else{

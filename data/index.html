@@ -9,12 +9,29 @@
 <body>
   <h1>Nixie Clock Configuration</h1>
   <p>Current Displayed Time: <strong id="time">Unknown</strong></p>
+  <p><a href="/scan"><button class="button">WIFI Setup</button></a></p>
   <p><a href="/sync"><button class="button">Sync Time</button></a></p>
-  <p><a href="/scan"><button class="button">WIFI Scan</button></a></p>
+  <p>LED is <strong>%LEDSTATE%</strong></p>
   <p><a href="/on"><button class="button">LED on</button></a></p>
   <p><a href="/off"><button class="button">LED off</button></a></p>
+  <p>High Voltage is <strong>%HVSTATE%</strong></p>
+  <p><a href="/HVon"><button class="button">HV on</button></a></p>
+  <p><a href="/HVoff"><button class="button">HV off</button></a></p>
   <p><a href="/update"><button class="button">Update</button></a></p>
+  <P>Brightness</P>
+  <p><span id="textSliderValue">%SLIDERVALUE%</span></p>
   <p><input type="range" onchange="updateSliderPWM(this)" id="pwmSlider" min="0" max="255" value="%SLIDERVALUE%" step="1" class="slider"></p>
+  <script>
+  function updateSliderPWM(element) {
+    var sliderValue = document.getElementById("pwmSlider").value;
+    document.getElementById("textSliderValue").innerHTML = sliderValue;
+    console.log(sliderValue);
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "/slider?value="+sliderValue, true);
+    xhr.send();
+  }
+  </script>
+  
 </body>
 <script>
 if (!!window.EventSource) {
@@ -39,13 +56,6 @@ if (!!window.EventSource) {
     document.getElementById("time").innerHTML = e.data;
   }, false);
 }
-function updateSliderPWM(element) {
-  var sliderValue = document.getElementById("pwmSlider").value;
-  document.getElementById("textSliderValue").innerHTML = sliderValue;
-  console.log(sliderValue);
-  var xhr = new XMLHttpRequest();
-  xhr.open("GET", "/slider?value="+sliderValue, true);
-  xhr.send();
-}
+
 </script>
 </html>
