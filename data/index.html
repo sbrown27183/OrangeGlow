@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Nixie Clock Configuration</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+  <h1>Nixie Clock Configuration</h1>
+  <p>Current Displayed Time: <strong id="time">Unknown</strong></p>
+  <p><a href="/sync"><button class="button">Sync Time</button></a></p>
+  <p><a href="/scan"><button class="button">WIFI Scan</button></a></p>
+  <p><a href="/on"><button class="button">LED on</button></a></p>
+  <p><a href="/off"><button class="button">LED off</button></a></p>
+  <p><a href="/update"><button class="button">Update</button></a></p>
+  <p><input type="range" onchange="updateSliderPWM(this)" id="pwmSlider" min="0" max="255" value="%SLIDERVALUE%" step="1" class="slider"></p>
+</body>
+<script>
+if (!!window.EventSource) {
+  var source = new EventSource('/events');
+
+  source.addEventListener('open', function(e) {
+    console.log("Events Connected");
+  }, false);
+
+  source.addEventListener('error', function(e) {
+    if (e.target.readyState != EventSource.OPEN) {
+      console.log("Events Disconnected");
+    }
+  }, false);
+
+  source.addEventListener('message', function(e) {
+    console.log("message", e.data);
+  }, false);
+
+  source.addEventListener('time', function(e) {
+    console.log("time", e.data);
+    document.getElementById("time").innerHTML = e.data;
+  }, false);
+}
+function updateSliderPWM(element) {
+  var sliderValue = document.getElementById("pwmSlider").value;
+  document.getElementById("textSliderValue").innerHTML = sliderValue;
+  console.log(sliderValue);
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", "/slider?value="+sliderValue, true);
+  xhr.send();
+}
+</script>
+</html>
