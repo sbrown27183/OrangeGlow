@@ -8,28 +8,43 @@
 #include <NTPClient.h>
 #include <WiFiUdp.h>
 #include <Update.h>
-///calculation constants
-#define MILLIS_IN_HR 60000
+#include <ArduinoJson.h>
+//calculation constants
+#define MILLIS_IN_MIN 60000
 #define SEC_IN_HR 3600
 
-// Replace with your network credentials
-const char* ssid = "ScoopNet";
-const char* password = "lockontractorbeam";
-const char* fallbackssid     = "Nixie-Access-Point";
-const char* fallbackpassword = "123456789";
 
-String sliderValue = "0";
+struct Config {
+  char ssid [60] = "YOUR SSID HERE";// Replace with your network credentials
+  char password [60] = "YOUR PW HERE";
+  char fallback_ssid [60]     = "Nixie-Access-Point";
+  char fallback_password [60] = "123456789";
+  int NTPupdatefreq_minutes = 5;
+  int timezone = -6;
+  char NTPServerPool[60] = "time.nist.gov";
+  bool pulseLEDs = false;
+  bool twelveHourMode = false;
+  bool LeadingZero = true;
+};
+
+String BsliderValue = "255";
+String LsliderValue = "0";
 const char* PARAM_INPUT = "value";
 bool shouldReboot = false;
+bool saveConfigFlag = false;
 //Pin Definitions
 const int hvPin = 26;
 const int ledPin = 2;
 const int led2Pin = 15;
 const int reset_n = 17;
 static const int spiClk = 1000000;
+//led PWM vars
+const int freq = 5000;
+const int ledChannel = 0;
+const int resolution = 8;
+
 //changeable time/NTP settings
-int NTPupdateMinutes = 5;
-int timezone = -6;
+
 //BCD ouput variables for display message
 int hours0 = 0x00;
 int minutes0 = 0x00;
@@ -45,7 +60,7 @@ int seconds = 0;
 //cstring for sending webpage time display
 char message[25];
 
-
+bool NTPUD = false;
 //pointer to spi object
 SPIClass * vspi = NULL;
 
@@ -54,22 +69,27 @@ AsyncWebServer server(80);
 AsyncEventSource events("/events"); // event source for updating time on webpage
 WiFiUDP ntpUDP; 
 NTPClient timeClient(ntpUDP);
+Config config;
 //function prototypes
 void HardwareSetup();
 void WifiSetup();
 void NTPClientSetup();
 void WebServerSetup();
+void LoadConfig();
+void SaveConfig();
 
 void setup(){
   
   HardwareSetup();
+  LoadConfig();
   WifiSetup();
   NTPClientSetup();
   WebServerSetup();
 
 }
- 
-void HardwareSetup(){
+
+void HardwareSetup()
+{
    // Serial port for debugging purposes
   Serial.begin(115200);
   pinMode(ledPin, OUTPUT);
@@ -80,6 +100,14 @@ void HardwareSetup(){
   digitalWrite(led2Pin,LOW); //turn off bright LEDs
   digitalWrite(hvPin,LOW); //turn on HV
   digitalWrite(reset_n, HIGH); //take FPGA out of reset
+   
+   // configure LED PWM functionalitites
+  ledcSetup(ledChannel, freq, resolution);
+  
+  // attach the channel to the GPIO to be controlled
+  ledcAttachPin(led2Pin, ledChannel);
+  
+  ledcWrite(ledChannel, LsliderValue.toInt());
    //init spi
    vspi = new SPIClass(VSPI);
    //initialise vspi with default pins
@@ -94,11 +122,76 @@ void HardwareSetup(){
     return;
   }
 }
+void LoadConfig()
+{
+  File file = SPIFFS.open("/config.json", FILE_READ);
+ 
+  if (!file) {
+    Serial.println("There was an error opening the config file for reading");
+    return;
+  }
+  StaticJsonDocument<512> doc;
 
+  // Deserialize the JSON document
+  DeserializationError error = deserializeJson(doc, file);
+    if (error)
+    Serial.println(F("Failed to read file, using default configuration"));
+
+  strlcpy(config.ssid, doc["ssid"], sizeof(config.ssid));
+  strlcpy(config.password, doc["password"], sizeof(config.password));
+  strlcpy(config.fallback_ssid, doc["fallback_ssid"], sizeof(config.fallback_ssid));
+  strlcpy(config.fallback_password, doc["fallback_password"], sizeof(config.fallback_password));
+  config.timezone = doc["timezone"];
+  config.NTPupdatefreq_minutes = doc["NTPupdatefreq_minutes"];
+  strlcpy(config.NTPServerPool, doc["NTPServerPool"],sizeof(config.NTPServerPool));
+  config.twelveHourMode = doc["twelveHourMode"];
+  config.LeadingZero = doc["LeadingZero"];
+  config.pulseLEDs = doc["pulseLEDs"];
+  file.close();
+  Serial.println("Config.json loaded successfully");
+  Serial.println(config.ssid);
+  Serial.println(config.password);
+  Serial.println(config.fallback_ssid);
+  Serial.println(config.fallback_password);
+  Serial.println(config.timezone);
+  Serial.println(config.NTPupdatefreq_minutes);
+  Serial.println(config.NTPServerPool);
+  Serial.println(config.twelveHourMode);
+  Serial.println(config.LeadingZero);
+  Serial.println(config.pulseLEDs);
+}
+void SaveConfig()
+{
+  File file = SPIFFS.open("/config.json", FILE_WRITE);
+  if (!file) {
+    Serial.println(F("Failed to create file"));
+    return;
+  }
+  StaticJsonDocument<512> doc;
+
+  //build doc
+  doc["ssid"] = config.ssid;
+  doc["password"] = config.password;
+  doc["fallback_ssid"] = config.fallback_ssid;
+  doc["fallback_password"] = config.fallback_password;
+  doc["timezone"] = config.timezone;
+  doc["NTPupdatefreq_minutes"] = config.NTPupdatefreq_minutes;
+  doc["NTPServerPool"] = config.NTPServerPool;
+  doc["twelveHourMode"] = config.twelveHourMode;
+  doc["LeadingZero"] = config.LeadingZero;
+  doc["pulseLEDs"] = config.pulseLEDs;
+
+
+  if (serializeJson(doc, file) == 0) {
+    Serial.println(F("Failed to write to file"));
+  }
+  file.close();
+  Serial.println("Config.json saved successfully");
+}
 void WifiSetup()
 {
   // Connect to Wi-Fi
-  WiFi.begin(ssid, password);
+  WiFi.begin(config.ssid, config.password);
   int i = 0;
   for(i=0;(i<20&&(WiFi.status() != WL_CONNECTED));i++){ // wait for wifi to connect for up to 10 seconds
     delay(500);
@@ -108,7 +201,7 @@ void WifiSetup()
      //Setup Fallback AP
     Serial.print("Setting AP (Access Point)…");
     // Remove the password parameter, if you want the AP (Access Point) to be open
-    WiFi.softAP(ssid, password);
+    WiFi.softAP(config.fallback_ssid, config.fallback_password);
   
     IPAddress IP = WiFi.softAPIP();
     Serial.print("AP IP address: ");
@@ -126,9 +219,9 @@ void WifiSetup()
 void NTPClientSetup()
 {
   timeClient.begin();
-  timeClient.setTimeOffset(SEC_IN_HR*timezone);
-  timeClient.setUpdateInterval(MILLIS_IN_HR*NTPupdateMinutes);
-  timeClient.setPoolServerName("time.nist.gov");
+  timeClient.setTimeOffset(config.timezone*SEC_IN_HR);
+  timeClient.setUpdateInterval(config.NTPupdatefreq_minutes*MILLIS_IN_MIN);
+  timeClient.setPoolServerName(config.NTPServerPool);
 }
 
 void WebServerSetup()
@@ -148,20 +241,25 @@ void WebServerSetup()
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send(SPIFFS, "/index.html", String(), false, processor);
   });
-  
   // Route to load style.css file
   server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send(SPIFFS, "/style.css", "text/css");
   });
-
   // Route to set GPIO to HIGH
   server.on("/on", HTTP_GET, [](AsyncWebServerRequest *request){
-    digitalWrite(ledPin, HIGH);   
+    config.pulseLEDs = false; 
+    ledcWrite(ledChannel, 255);  
     request->send(SPIFFS, "/index.html", String(), false, processor);
   });
   // Route to set GPIO to LOW
   server.on("/off", HTTP_GET, [](AsyncWebServerRequest *request){
-    digitalWrite(ledPin, LOW);   
+    config.pulseLEDs = false;
+    ledcWrite(ledChannel, 0);
+    request->send(SPIFFS, "/index.html", String(), false, processor);
+  });
+  server.on("/pulse", HTTP_GET, [](AsyncWebServerRequest *request){
+    config.pulseLEDs = true;
+    //TODO Later, make magic fading happen with shit LEDC arduino libs
     request->send(SPIFFS, "/index.html", String(), false, processor);
   });
   server.on("/HVon", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -172,19 +270,30 @@ void WebServerSetup()
     digitalWrite(hvPin, HIGH);    
     request->send(SPIFFS, "/index.html", String(), false, processor);
   });
-
   server.on("/sync", HTTP_GET, [](AsyncWebServerRequest *request){
     timeClient.forceUpdate();    
     request->send(SPIFFS, "/index.html", String(), false, processor);
   });
+  server.on("/mil", HTTP_GET, [](AsyncWebServerRequest *request){
+    config.twelveHourMode = !config.twelveHourMode; 
+    request->send(SPIFFS, "/index.html", String(), false, processor);
+  });
+  server.on("/zero", HTTP_GET, [](AsyncWebServerRequest *request){
+    config.LeadingZero = !config.LeadingZero;
+    request->send(SPIFFS, "/index.html", String(), false, processor);
+  });
+  server.on("/save", HTTP_GET, [](AsyncWebServerRequest *request){
+    SaveConfig();
+    request->send(SPIFFS, "/index.html", String(), false, processor);
+  });
 // Send a GET request to <ESP_IP>/slider?value=<inputMessage>
-  server.on("/slider", HTTP_GET, [] (AsyncWebServerRequest *request) {
+  server.on("/Bslider", HTTP_GET, [] (AsyncWebServerRequest *request) {
     String inputMessage;
     // GET input1 value on <ESP_IP>/slider?value=<inputMessage>
     if (request->hasParam(PARAM_INPUT)) {
       inputMessage = request->getParam(PARAM_INPUT)->value();
-      sliderValue = inputMessage;
-      brightness = sliderValue.toInt();
+      BsliderValue = inputMessage;
+      brightness = BsliderValue.toInt();
     }
     else {
       inputMessage = "No message sent";
@@ -192,7 +301,22 @@ void WebServerSetup()
     Serial.println(inputMessage);
     request->send(200, "text/plain", "OK");
   });
-
+  server.on("/Lslider", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    String inputMessage;
+    // GET input1 value on <ESP_IP>/slider?value=<inputMessage>
+    if (request->hasParam(PARAM_INPUT)) {
+      inputMessage = request->getParam(PARAM_INPUT)->value();
+      LsliderValue = inputMessage;
+      if(config.pulseLEDs == false){
+        ledcWrite(ledChannel, LsliderValue.toInt());
+      }
+    }
+    else {
+      inputMessage = "No message sent";
+    }
+    Serial.println(inputMessage);
+    request->send(200, "text/plain", "OK");
+  });
   //wifi scan page
   server.on("/scan", HTTP_GET, [](AsyncWebServerRequest *request){
   String json = "[";
@@ -256,26 +380,35 @@ void WebServerSetup()
   server.begin();
 } 
 
-void loop(){
-
+void loop()
+  {
+    seconds = timeClient.getSeconds();
+    minutes = timeClient.getMinutes();
+    hours = timeClient.getHours();
+    if(config.twelveHourMode){
+      if(hours > 12)
+        hours = hours - 12;
+      
+    }
+    seconds0 = seconds % 10;
+    seconds1 = seconds / 10;
+    minutes0 = minutes % 10;
+    minutes1 = minutes / 10;
+    hours0 = hours % 10;
+    hours1 = hours / 10;
+    if(config.LeadingZero == false && hours1 == 0){
+      hours1 = 0xA; //out of range, will blank digit.
+    }
+  writeDisplay((hours1 << 4 | hours0), (minutes1 << 4 | minutes0),(seconds1 << 4 | seconds0), brightness);
   sprintf(message, "%i%i:%i%i:%i%i", hours1, hours0, minutes1, minutes0, seconds1, seconds0);
   events.send(message,"time",millis());
-  seconds = timeClient.getSeconds();
-  seconds0 = seconds % 10;
-  seconds1 = seconds / 10;
-  minutes = timeClient.getMinutes();
-  minutes0 = minutes % 10;
-  minutes1 = minutes / 10;
-  hours = timeClient.getHours();
-  hours0 = hours % 10;
-  hours1 = hours / 10;
-  writeDisplay((hours1 << 4 | hours0), (minutes1 << 4 | minutes0),(seconds1 << 4 | seconds0), brightness);
-  timeClient.update();
+  NTPUD = timeClient.update();
+
   // char debug[25];
   // sprintf(debug, "%i|%i::%i|%i::%i|%", hours1, hours0, minutes1, minutes0, seconds1, seconds0);
-  // Serial.println(debug);
+  Serial.print("Time Update Successful? ");
+  Serial.println(NTPUD);
   delay(1000);
-
 }
 
 // Replaces placeholder with LED state value
@@ -283,8 +416,11 @@ String processor(const String& var){
   String ledState;
   String hvState;
   Serial.println(var);
-  if (var == "SLIDERVALUE"){
-    return sliderValue;
+  if (var == "BSLIDERVALUE"){
+    return BsliderValue;
+  }
+  else if (var == "LSLIDERVALUE"){
+    return LsliderValue;
   }
   else if(var == "HVSTATE"){
     if(!digitalRead(hvPin)){
@@ -297,7 +433,7 @@ String processor(const String& var){
     return hvState;
   }
   else if(var == "LEDSTATE"){
-    if(digitalRead(ledPin)){
+    if(ledcRead(ledChannel) != 0){
       ledState = "ON";
     }
     else{

@@ -9,21 +9,18 @@
 <body>
   <h1>Nixie Clock Configuration</h1>
   <p>Current Displayed Time: <strong id="time">Unknown</strong></p>
-  <p><a href="/scan"><button class="button">WIFI Setup</button></a></p>
-  <p><a href="/sync"><button class="button">Sync Time</button></a></p>
+  <p><a href="/scan"><button class="button">WIFI Setup</button></a><a href="/update"><button class="button">FW Update</button></a><a href="/sync"><button class="button">Sync Time</button></p>
+  <p><a href="/zero"><button class="button">Toggle Leading Zero</button></a><a href="/mil"><button class="button">Toggle 12/24 Hr</button></a></p>
+  <p><a href="/save"><button class="button">Save This Config</button></a></p>
   <p>LED is <strong>%LEDSTATE%</strong></p>
-  <p><a href="/on"><button class="button">LED on</button></a></p>
-  <p><a href="/off"><button class="button">LED off</button></a></p>
+  <p><a href="/on"><button class="button">LED on</button></a> <a href="/off"><button class="button">LED off</button></a> <a href="/pulse"></ahref><button class="button">LED Pulse</button></a></p>
   <p>High Voltage is <strong>%HVSTATE%</strong></p>
-  <p><a href="/HVon"><button class="button">HV on</button></a></p>
-  <p><a href="/HVoff"><button class="button">HV off</button></a></p>
-  <p><a href="/update"><button class="button">Update</button></a></p>
-  <P>Brightness</P>
-  <p><span id="textSliderValue">%SLIDERVALUE%</span></p>
-  <p><input type="range" onchange="updateSliderPWM(this)" id="pwmSlider" min="0" max="255" value="%SLIDERVALUE%" step="1" class="slider"></p>
+  <p><a href="/HVon"><button class="button">HV on</button></a> <a href="/HVoff"><button class="button">HV off</button></a></p>
+  <p>Nixie Brightness <span id="BtSliderValue">%BSLIDERVALUE%</span></p>
+  <p><input type="range" onchange="updateBSliderPWM(this)" id="pwmSlider" min="0" max="255" value="%SLIDERVALUE%" step="1" class="slider"></p>
   <script>
-  function updateSliderPWM(element) {
-    var sliderValue = document.getElementById("pwmSlider").value;
+  function updateBSliderPWM(element) {
+    var sliderValue = document.getElementById("BpwmSlider").value;
     document.getElementById("textSliderValue").innerHTML = sliderValue;
     console.log(sliderValue);
     var xhr = new XMLHttpRequest();
@@ -31,7 +28,18 @@
     xhr.send();
   }
   </script>
-  
+  <p>Front LED Brightness <span id="LtSliderValue">%LSLIDERVALUE%</span></p>
+  <p><input type="range" onchange="updateLSliderPWM(this)" id="LpwmSlider" min="0" max="255" value="%SLIDERVALUE%" step="1" class="slider"></p>
+  <script>
+  function updateLSliderPWM(element) {
+    var sliderValue = document.getElementById("LpwmSlider").value;
+    document.getElementById("textSliderValue").innerHTML = sliderValue;
+    console.log(sliderValue);
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "/slider?value="+sliderValue, true);
+    xhr.send();
+  }
+  </script>
 </body>
 <script>
 if (!!window.EventSource) {
