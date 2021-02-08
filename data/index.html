@@ -17,14 +17,14 @@
   <p>High Voltage is <strong>%HVSTATE%</strong></p>
   <p><a href="/HVon"><button class="button">HV on</button></a> <a href="/HVoff"><button class="button">HV off</button></a></p>
   <p>Nixie Brightness <span id="BtSliderValue">%BSLIDERVALUE%</span></p>
-  <p><input type="range" onchange="updateBSliderPWM(this)" id="pwmSlider" min="0" max="255" value="%SLIDERVALUE%" step="1" class="slider"></p>
+  <p><input type="range" onchange="updateBSliderPWM(this)" id="BpwmSlider" min="0" max="255" value="%SLIDERVALUE%" step="1" class="slider"></p>
   <script>
   function updateBSliderPWM(element) {
     var sliderValue = document.getElementById("BpwmSlider").value;
-    document.getElementById("textSliderValue").innerHTML = sliderValue;
+    document.getElementById("BtSliderValue").innerHTML = sliderValue;
     console.log(sliderValue);
     var xhr = new XMLHttpRequest();
-    xhr.open("GET", "/slider?value="+sliderValue, true);
+    xhr.open("GET", "/Bslider?value="+sliderValue, true);
     xhr.send();
   }
   </script>
@@ -33,10 +33,10 @@
   <script>
   function updateLSliderPWM(element) {
     var sliderValue = document.getElementById("LpwmSlider").value;
-    document.getElementById("textSliderValue").innerHTML = sliderValue;
+    document.getElementById("LtSliderValue").innerHTML = sliderValue;
     console.log(sliderValue);
     var xhr = new XMLHttpRequest();
-    xhr.open("GET", "/slider?value="+sliderValue, true);
+    xhr.open("GET", "/Lslider?value="+sliderValue, true);
     xhr.send();
   }
   </script>

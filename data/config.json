@@ -1,0 +1,12 @@
+{
+  "ssid": "ScoopNet",
+  "password": "lockontractorbeam",
+  "fallback_ssid": "Nixie Hotspot",
+  "fallback_password":"123456789",
+  "timezone": -6,
+  "NTPupdatefreq_minutes":60,
+  "NTPServerPool": "time.nist.gov",
+  "twelveHourMode": false,
+  "LeadingZero":true,
+  "pulseLEDs": false
+}
