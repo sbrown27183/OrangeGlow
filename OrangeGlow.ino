@@ -6,6 +6,7 @@
 #include "SPIFFS.h"
 #include <SPI.h>
 #include <NTPClient.h>
+//#include <timezone.h>
 #include <WiFiUdp.h>
 #include <Update.h>
 #include <ArduinoJson.h>
@@ -25,10 +26,13 @@ struct Config {
   bool pulseLEDs = false;
   bool twelveHourMode = false;
   bool LeadingZero = true;
+  int brightness = 255;
+  int LEDBright = 0;
 };
 
 String BsliderValue = "255";
 String LsliderValue = "0";
+String TimezoneValue = "-6";
 const char* PARAM_INPUT = "value";
 bool shouldReboot = false;
 bool saveConfigFlag = false;
@@ -286,6 +290,21 @@ void WebServerSetup()
     SaveConfig();
     request->send(SPIFFS, "/index.html", String(), false, processor);
   });
+  server.on("/setTZ", HTTP_GET, [](AsyncWebServerRequest *request){
+    String inputMessage;
+    // GET input1 value on <ESP_IP>/slider?value=<inputMessage>
+    if (request->hasParam(PARAM_INPUT)) {
+      inputMessage = request->getParam(PARAM_INPUT)->value();
+      TimezoneValue = inputMessage;
+      config.timezone = TimezoneValue.toInt();
+    }
+    else {
+      inputMessage = "No message sent";
+    }
+    Serial.println(inputMessage);
+    timeClient.setTimeOffset(config.timezone*SEC_IN_HR); //refresh timeclient settings (saves a reboot)
+    request->send(200, "text/plain", "OK");
+  });
 // Send a GET request to <ESP_IP>/slider?value=<inputMessage>
   server.on("/Bslider", HTTP_GET, [] (AsyncWebServerRequest *request) {
     String inputMessage;
@@ -293,7 +312,7 @@ void WebServerSetup()
     if (request->hasParam(PARAM_INPUT)) {
       inputMessage = request->getParam(PARAM_INPUT)->value();
       BsliderValue = inputMessage;
-      brightness = BsliderValue.toInt();
+      config.brightness = BsliderValue.toInt();
     }
     else {
       inputMessage = "No message sent";
