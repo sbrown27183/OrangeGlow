@@ -50,6 +50,7 @@ const int resolution = 8;
 //changeable time/NTP settings
 
 //BCD ouput variables for display message
+int curr_hour = 0;
 int hours0 = 0x00;
 int minutes0 = 0x00;
 int seconds0 = 0x00;
@@ -421,13 +422,17 @@ void loop()
   writeDisplay((hours1 << 4 | hours0), (minutes1 << 4 | minutes0),(seconds1 << 4 | seconds0), brightness);
   sprintf(message, "%i%i:%i%i:%i%i", hours1, hours0, minutes1, minutes0, seconds1, seconds0);
   events.send(message,"time",millis());
-  NTPUD = timeClient.update();
 
-  // char debug[25];
-  // sprintf(debug, "%i|%i::%i|%i::%i|%", hours1, hours0, minutes1, minutes0, seconds1, seconds0);
-  Serial.print("Time Update Successful? ");
-  Serial.println(NTPUD);
-  delay(1000);
+  if (hours != curr_hour) {
+    NTPUD = timeClient.update();
+    curr_hour = hours;
+
+    // char debug[25];
+    // sprintf(debug, "%i|%i::%i|%i::%i|%", hours1, hours0, minutes1, minutes0, seconds1, seconds0);
+    Serial.print("Time Update Successful? ");
+    Serial.println(NTPUD);
+  }
+  delay(250);
 }
 
 // Replaces placeholder with LED state value
